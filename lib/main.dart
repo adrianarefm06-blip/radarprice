@@ -20,10 +20,11 @@ void main() {
   runApp(const ProviderScope(retry: _retryPolicy, child: RadarPriceApp()));
 }
 
-/// Errores de dominio ([AppException]) y de programación ([Error]) no se reintentan.
-/// Errores transitorios (red): 3 reintentos con backoff 200/400/800 ms.
+/// No se reintentan errores de programación ([Error]) ni [AppException] no transitorias.
+/// Red / timeout / 5xx: 3 reintentos con backoff 200/400/800 ms.
 Duration? _retryPolicy(int retryCount, Object error) {
-  if (error is AppException || error is Error) return null;
+  if (error is Error) return null;
+  if (error is AppException && !error.isRetryable) return null;
   if (retryCount >= 3) return null;
   return Duration(milliseconds: 200 * (1 << retryCount));
 }

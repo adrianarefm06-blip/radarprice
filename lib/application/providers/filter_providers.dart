@@ -2,14 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/sizes.dart';
 
-/// Talla EU activa del usuario. `null` = todas las tallas.
+/// Talla EU activa del usuario en Chollos / tienda / detalle. `null` = todas.
 class SelectedSizeFilter extends Notifier<String?> {
   @override
   String? build() => null;
 
   void select(String? size) {
-    if (size != null && !kSupportedSizes.contains(size)) {
-      throw ArgumentError.value(size, 'size', 'Talla no soportada. Usa kSupportedSizes');
+    if (size != null && !kAllSizes.contains(size)) {
+      throw ArgumentError.value(size, 'size', 'Talla no soportada');
     }
     state = size;
   }
