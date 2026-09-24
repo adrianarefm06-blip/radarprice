@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:radarprice/application/providers/providers.dart';
+import 'package:radarprice/data/mock/in_memory_favorites_repository.dart';
 import 'package:radarprice/data/mock/mock_alert_repository.dart';
 import 'package:radarprice/data/mock/mock_product_repository.dart';
 import 'package:radarprice/domain/models/models.dart';
@@ -185,6 +186,7 @@ void main() {
           overrides: [
             productRepositoryProvider.overrideWithValue(MockProductRepository(catalog: _catalog, latency: Duration.zero)),
             alertRepositoryProvider.overrideWithValue(MockAlertRepository(latency: Duration.zero)),
+            favoritesRepositoryProvider.overrideWithValue(InMemoryFavoritesRepository()),
           ],
           child: MaterialApp(
             home: Scaffold(body: home),

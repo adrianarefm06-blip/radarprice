@@ -12,7 +12,7 @@ import 'store_logo.dart';
 /// Tarjeta del feed "Mejores chollos": descuento máximo + comparador de tiendas.
 /// Presentacional (sin Riverpod): recibe la comparación ya calculada.
 class DealComparisonCard extends StatelessWidget {
-  const DealComparisonCard({super.key, required this.deal, this.onTap, this.onQuoteTap});
+  const DealComparisonCard({super.key, required this.deal, this.onTap, this.onQuoteTap, this.action});
 
   final DealComparison deal;
   final VoidCallback? onTap;
@@ -20,12 +20,16 @@ class DealComparisonCard extends StatelessWidget {
   /// Tap sobre una tienda con stock (p. ej. abrir su web).
   final ValueChanged<StoreQuote>? onQuoteTap;
 
+  /// Acción en la esquina superior derecha (p. ej. botón de favorito).
+  final Widget? action;
+
   @override
   Widget build(BuildContext context) {
     final product = deal.product;
     final text = Theme.of(context).textTheme;
     final colorway = product.colorway;
     final showRetail = (deal.bestPrice - product.retailPrice).abs() >= 0.01;
+    final action = this.action;
 
     return Material(
       color: AppColors.surface,
@@ -47,7 +51,19 @@ class DealComparisonCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(product.brand, style: text.labelLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.brand,
+                                style: text.labelLarge,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ?action,
+                          ],
+                        ),
                         const SizedBox(height: 2),
                         Text(product.model, style: text.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                         if (colorway != null && colorway.isNotEmpty) ...[

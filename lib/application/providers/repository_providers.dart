@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/mock/mock_alert_repository.dart';
 import '../../domain/repositories/alert_repository.dart';
+import '../../domain/repositories/favorites_repository.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../../infrastructure/repositories/http_product_repository.dart';
+import '../../infrastructure/repositories/shared_prefs_favorites_repository.dart';
 
 /// Emulador Android → host: 10.0.2.2. Dispositivo físico / otro entorno:
 /// `flutter run --dart-define=API_BASE_URL=http://192.168.1.50:8000`
@@ -18,4 +20,9 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 /// Sin endpoints de alertas en la API aún: persistencia en memoria.
 final alertRepositoryProvider = Provider<AlertRepository>(
   (ref) => MockAlertRepository(),
+);
+
+/// Favoritos en el dispositivo (shared_preferences). Tests: override en memoria.
+final favoritesRepositoryProvider = Provider<FavoritesRepository>(
+  (ref) => SharedPrefsFavoritesRepository(),
 );

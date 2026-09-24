@@ -136,10 +136,7 @@ List<DealComparison> buildDealComparisons(
   final deals = [
     for (final product in products)
       if (segment.includes(product.gender)) ?buildDealComparison(product, size: size),
-  ]..sort((a, b) {
-      final bySavings = b.maxSavingsPercent.compareTo(a.maxSavingsPercent);
-      return bySavings != 0 ? bySavings : a.bestPrice.compareTo(b.bestPrice);
-    });
+  ]..sort(_byDiscount);
   return List.unmodifiable(deals);
 }
 
@@ -156,4 +153,74 @@ int _byStockPriceName(StoreQuote a, StoreQuote b) {
   if (a.inStock != b.inStock) return a.inStock ? -1 : 1;
   final byPrice = (a.price ?? 0).compareTo(b.price ?? 0);
   return byPrice != 0 ? byPrice : a.storeName.compareTo(b.storeName);
+}
+
+// -----------------------------------------------------------------------------
+// Búsqueda y ordenación (en memoria, sin red)
+// -----------------------------------------------------------------------------
+
+enum DealSort {
+  discount(label: 'Mayor descuento (%)'),
+  price(label: 'Precio más bajo'),
+  name(label: 'Nombre (A-Z)');
+
+  const DealSort({required this.label});
+
+  final String label;
+}
+
+/// Todas las palabras de [query] deben aparecer en marca, modelo, colorway o SKU.
+/// Sin distinguir mayúsculas ni tildes; el SKU también casa sin guiones.
+bool matchesDealQuery(Product product, String query) {
+  final tokens = normalizeSearchText(query).split(RegExp(r'[\s"]+')).where((t) => t.isNotEmpty);
+  if (tokens.isEmpty) return true;
+  final haystack = normalizeSearchText(
+    '${product.brand} ${product.model} ${product.colorway ?? ''} ${product.sku} ${product.sku.replaceAll('-', '')}',
+  );
+  return tokens.every(haystack.contains);
+}
+
+const _accents = {'á': 'a', 'à': 'a', 'ä': 'a', 'é': 'e', 'è': 'e', 'ë': 'e', 'í': 'i', 'ï': 'i',
+  'ó': 'o', 'ò': 'o', 'ö': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n', 'ç': 'c'};
+
+String normalizeSearchText(String value) {
+  final lower = value.toLowerCase();
+  final buffer = StringBuffer();
+  for (final char in lower.split('')) {
+    buffer.write(_accents[char] ?? char);
+  }
+  return buffer.toString();
+}
+
+/// Aplica texto, lista de SKUs permitidos (p. ej. favoritos) y orden. No muta [deals].
+List<DealComparison> refineDeals(
+  Iterable<DealComparison> deals, {
+  String query = '',
+  Set<String>? onlySkus,
+  DealSort sort = DealSort.discount,
+}) {
+  final result = [
+    for (final deal in deals)
+      if ((onlySkus == null || onlySkus.contains(deal.product.sku)) && matchesDealQuery(deal.product, query)) deal,
+  ]..sort(switch (sort) {
+      DealSort.discount => _byDiscount,
+      DealSort.price => _byPrice,
+      DealSort.name => _byName,
+    });
+  return List.unmodifiable(result);
+}
+
+int _byDiscount(DealComparison a, DealComparison b) {
+  final bySavings = b.maxSavingsPercent.compareTo(a.maxSavingsPercent);
+  return bySavings != 0 ? bySavings : a.bestPrice.compareTo(b.bestPrice);
+}
+
+int _byPrice(DealComparison a, DealComparison b) {
+  final byPrice = a.bestPrice.compareTo(b.bestPrice);
+  return byPrice != 0 ? byPrice : b.maxSavingsPercent.compareTo(a.maxSavingsPercent);
+}
+
+int _byName(DealComparison a, DealComparison b) {
+  final byName = normalizeSearchText(a.product.displayName).compareTo(normalizeSearchText(b.product.displayName));
+  return byName != 0 ? byName : a.product.sku.compareTo(b.product.sku);
 }
