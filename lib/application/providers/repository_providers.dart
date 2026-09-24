@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/mock/mock_alert_repository.dart';
 import '../../domain/repositories/alert_repository.dart';
 import '../../domain/repositories/favorites_repository.dart';
 import '../../domain/repositories/product_repository.dart';
+import '../../infrastructure/http/api_client.dart';
+import '../../infrastructure/repositories/device_id_store.dart';
+import '../../infrastructure/repositories/http_alert_repository.dart';
 import '../../infrastructure/repositories/http_product_repository.dart';
 import '../../infrastructure/repositories/shared_prefs_favorites_repository.dart';
 
@@ -18,10 +20,15 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return repository;
 });
 
-/// Sin endpoints de alertas en la API aún: persistencia en memoria.
-final alertRepositoryProvider = Provider<AlertRepository>(
-  (ref) => MockAlertRepository(),
-);
+/// Id aleatorio del dispositivo para las alertas (`X-Device-Id`).
+final deviceIdStoreProvider = Provider<DeviceIdStore>((ref) => DeviceIdStore());
+
+/// Alertas en el servidor, aisladas por dispositivo. Tests: override con `MockAlertRepository`.
+final alertRepositoryProvider = Provider<AlertRepository>((ref) {
+  final api = ApiClient(baseUrl: kApiBaseUrl);
+  ref.onDispose(api.dispose);
+  return HttpAlertRepository(api: api, deviceId: ref.watch(deviceIdStoreProvider).read);
+});
 
 /// Favoritos en el dispositivo (shared_preferences). Tests: override en memoria.
 final favoritesRepositoryProvider = Provider<FavoritesRepository>(

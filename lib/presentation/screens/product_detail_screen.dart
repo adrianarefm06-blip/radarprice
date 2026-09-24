@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/store_launcher.dart';
+import '../widgets/create_alert_sheet.dart';
 import '../widgets/discount_badge.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/price_history_chart.dart';
@@ -32,7 +33,13 @@ class ProductDetailScreen extends ConsumerWidget {
     final product = productAsync.hasValue ? productAsync.requireValue : initialProduct;
 
     return Scaffold(
-      appBar: AppBar(actions: [FavoriteButton(sku: sku), const SizedBox(width: 8)]),
+      appBar: AppBar(
+        actions: [
+          if (product != null) AlertBellButton(product: product),
+          FavoriteButton(sku: sku),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: product != null
           ? _DetailBody(product: product)
           : productAsync.hasError

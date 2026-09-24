@@ -55,7 +55,7 @@ class AlertsScreen extends ConsumerWidget {
                         child: StateMessageView(
                           icon: Icons.notifications_off_outlined,
                           title: 'Aún no tienes alertas',
-                          message: 'Abre una zapatilla y crea una alerta para saber cuándo baja de tu precio.',
+                          message: 'Abre una zapatilla y pulsa la campana para saber cuándo baja de tu precio.',
                         ),
                       )
                     : ListView.separated(
@@ -75,8 +75,10 @@ class AlertsScreen extends ConsumerWidget {
 
   static String _summary(List<PriceAlert> alerts) {
     final active = alerts.where((a) => a.isActive).length;
+    final reached = alerts.where((a) => a.isTriggered).length;
     if (alerts.isEmpty) return 'Te avisamos cuando una zapatilla baje de tu precio';
-    return active == 1 ? '1 activa de ${alerts.length}' : '$active activas de ${alerts.length}';
+    final base = active == 1 ? '1 activa de ${alerts.length}' : '$active activas de ${alerts.length}';
+    return reached == 0 ? base : '$base · $reached con precio alcanzado';
   }
 }
 
@@ -85,10 +87,20 @@ class _AlertTile extends ConsumerWidget {
 
   final PriceAlert alert;
 
-  Future<void> _toggle(BuildContext context, WidgetRef ref) async {
+  Future<void> _setActive(BuildContext context, WidgetRef ref, bool isActive) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(alertsProvider.notifier).toggle(alert.id);
+      await ref.read(alertsProvider.notifier).setActive(alert.id, isActive: isActive);
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(userMessageFor(error))));
+    }
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, String name) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(alertsProvider.notifier).delete(alert.id);
+      messenger.showSnackBar(SnackBar(content: Text('Alerta de $name eliminada')));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text(userMessageFor(error))));
     }
@@ -99,52 +111,53 @@ class _AlertTile extends ConsumerWidget {
     final productAsync = ref.watch(productBySkuProvider(alert.sku));
     final product = productAsync.hasValue ? productAsync.requireValue : null;
     final text = Theme.of(context).textTheme;
-    final triggered = product != null && alert.isTriggeredBy(product);
     final size = alert.targetSize;
-    final currentPrice = product == null
-        ? null
-        : size == null
-            ? product.lowestPrice
-            : product.lowestPriceForSize(size);
+    final name = product?.displayName ?? alert.sku;
 
-    return AnimatedOpacity(
-      opacity: alert.isActive ? 1 : 0.55,
-      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: product == null ? null : () => AppRouter.openProduct(context, product),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product?.displayName ?? alert.sku,
-                        style: text.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${size == null ? 'Cualquier talla' : 'EU $size'}, por debajo de ${formatPrice(alert.targetPrice)}',
-                        style: text.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
-                      _Status(triggered: triggered, currentPrice: currentPrice, loaded: product != null),
-                    ],
+    return Dismissible(
+      key: ValueKey('dismiss-${alert.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.background),
+      ),
+      onDismissed: (_) => _delete(context, ref, name),
+      child: AnimatedOpacity(
+        opacity: alert.isActive ? 1 : 0.55,
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200),
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: product == null ? null : () => AppRouter.openProduct(context, product),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: text.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${size == null ? 'Cualquier talla' : 'EU $size'}, por debajo de ${formatPrice(alert.targetPrice)}',
+                          style: text.bodySmall,
+                        ),
+                        const SizedBox(height: 8),
+                        _Status(alert: alert),
+                      ],
+                    ),
                   ),
-                ),
-                Switch(
-                  value: alert.isActive,
-                  onChanged: (_) => _toggle(context, ref),
-                ),
-              ],
+                  Switch(
+                    value: alert.isActive,
+                    onChanged: (value) => _setActive(context, ref, value),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -154,25 +167,31 @@ class _AlertTile extends ConsumerWidget {
 }
 
 class _Status extends StatelessWidget {
-  const _Status({required this.triggered, required this.currentPrice, required this.loaded});
+  const _Status({required this.alert});
 
-  final bool triggered;
-  final double? currentPrice;
-  final bool loaded;
+  final PriceAlert alert;
 
   @override
   Widget build(BuildContext context) {
-    final price = currentPrice;
-    if (!loaded) return const SizedBox(height: 16);
+    final text = Theme.of(context).textTheme;
+    final price = alert.currentPrice;
+    final triggeredAt = alert.triggeredAt;
+    if (alert.isTriggered && triggeredAt != null) {
+      return Text(
+        'Precio alcanzado: ${formatPrice(alert.triggeredPrice ?? price ?? alert.targetPrice)} · '
+        '${formatShortDate(triggeredAt.toLocal())}',
+        style: AppTypography.price(fontSize: 16, color: AppColors.deal),
+      );
+    }
     if (price == null) {
-      return Text('Agotado en esta talla', style: Theme.of(context).textTheme.bodySmall);
+      return Text(
+        alert.targetSize == null ? 'Sin stock ahora mismo' : 'Agotado en esta talla',
+        style: text.bodySmall,
+      );
     }
     return Text(
-      triggered ? 'Precio alcanzado: ${formatPrice(price)}' : 'Ahora desde ${formatPrice(price)}',
-      style: AppTypography.price(
-        fontSize: 16,
-        color: triggered ? AppColors.deal : AppColors.textSecondary,
-      ),
+      'Ahora desde ${formatPrice(price)}',
+      style: AppTypography.price(fontSize: 16, color: AppColors.textSecondary),
     );
   }
 }
