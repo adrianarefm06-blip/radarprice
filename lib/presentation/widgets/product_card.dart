@@ -126,9 +126,8 @@ class _Details extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  pricing.selectedSize != null
-                      ? 'Mejor precio en ${offer.storeName}'
-                      : 'Mejor precio en ${offer.storeName}, talla EU ${pricing.offerSize}',
+                  '${pricing.selectedSize != null ? 'Mejor precio en ${offer.storeName}' : 'Mejor precio en ${offer.storeName}, talla EU ${pricing.offerSize}'}'
+                  '${offer.isSimulated ? ' (estimado)' : ''}',
                   style: text.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

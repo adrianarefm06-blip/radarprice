@@ -225,7 +225,7 @@ class _OfferRow extends StatelessWidget {
             Text(offer.storeName, style: text.titleSmall),
             const SizedBox(height: 2),
             Text(
-              offer.inStock ? 'En stock' : 'Agotado',
+              '${offer.inStock ? 'En stock' : 'Agotado'}${offer.isSimulated ? ' · precio estimado' : ''}',
               style: text.bodySmall?.copyWith(color: offer.inStock ? AppColors.deal : AppColors.textMuted),
             ),
           ],

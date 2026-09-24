@@ -178,11 +178,13 @@ class _QuoteChip extends StatelessWidget {
     final price = quote.price;
     final cheapest = quote.isCheapest;
     final size = quote.size;
+    final simulated = quote.offer?.isSimulated ?? false;
     final text = Theme.of(context).textTheme;
 
     final label = price == null
         ? '${quote.storeName}: sin stock'
-        : '${quote.storeName}: ${formatPrice(price)}${showSize && size != null ? ', talla EU $size' : ''}'
+        : '${quote.storeName}: ${formatPrice(price)}${simulated ? ' estimado' : ''}'
+            '${showSize && size != null ? ', talla EU $size' : ''}'
             '${cheapest ? ', mejor precio' : ''}';
 
     return Semantics(
@@ -230,12 +232,39 @@ class _QuoteChip extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text('EU $size', style: text.labelSmall?.copyWith(color: AppColors.textMuted)),
                       ],
+                      if (simulated) ...[
+                        const SizedBox(width: 4),
+                        const EstimatedTag(),
+                      ],
                     ],
                   ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Marca de precio de demostración (oferta `simulated`): nunca se presenta como real.
+class EstimatedTag extends StatelessWidget {
+  const EstimatedTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Precio estimado (dato de demostración, no leído de la tienda)',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.badge),
+          border: Border.all(color: AppColors.textMuted),
+        ),
+        child: Text(
+          'Est.',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textMuted),
         ),
       ),
     );
