@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart' show immutable;
 
-import 'product.dart';
-
-/// Alerta de precio del usuario.
+/// Alerta de precio del dispositivo. El servidor asigna [id] y evalúa el disparo
+/// en cada sync; la app solo refleja su estado.
 ///
 /// [targetSize] == `null` → cualquier talla.
 @immutable
@@ -15,28 +14,10 @@ class PriceAlert {
     required this.isActive,
     required this.createdAt,
     this.targetSize,
+    this.triggeredAt,
+    this.triggeredPrice,
+    this.currentPrice,
   });
-
-  /// Alerta nueva, activa, con id local temporal.
-  /// Con backend real, el id debe asignarlo el servidor.
-  factory PriceAlert.draft({
-    required String productId,
-    required String sku,
-    required double targetPrice,
-    String? targetSize,
-    DateTime? now,
-  }) {
-    final timestamp = now ?? DateTime.now();
-    return PriceAlert(
-      id: 'alert_${timestamp.microsecondsSinceEpoch}',
-      productId: productId,
-      sku: sku,
-      targetPrice: targetPrice,
-      targetSize: targetSize,
-      isActive: true,
-      createdAt: timestamp,
-    );
-  }
 
   factory PriceAlert.fromJson(Map<String, dynamic> json) => PriceAlert(
         id: json['id'] as String,
@@ -46,6 +27,12 @@ class PriceAlert {
         targetSize: json['targetSize'] as String?,
         isActive: json['isActive'] as bool,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        triggeredAt: switch (json['triggeredAt']) {
+          final String value => DateTime.parse(value),
+          _ => null,
+        },
+        triggeredPrice: (json['triggeredPrice'] as num?)?.toDouble(),
+        currentPrice: (json['currentPrice'] as num?)?.toDouble(),
       );
 
   final String id;
@@ -56,33 +43,27 @@ class PriceAlert {
   final bool isActive;
   final DateTime createdAt;
 
-  /// `true` si la alerta está activa y el precio actual cumple el objetivo.
-  bool isTriggeredBy(Product product) {
-    if (!isActive || product.sku != sku) return false;
-    final size = targetSize;
-    final current = size == null ? product.lowestPrice : product.lowestPriceForSize(size);
-    return current != null && current <= targetPrice;
-  }
+  /// Último cruce del objetivo; `null` si no se ha cumplido (o volvió a subir).
+  final DateTime? triggeredAt;
+  final double? triggeredPrice;
 
-  /// [targetSize] usa función para poder asignar `null` explícitamente:
-  /// `alert.copyWith(targetSize: () => null)`.
-  PriceAlert copyWith({
-    String? id,
-    String? productId,
-    String? sku,
-    double? targetPrice,
-    String? Function()? targetSize,
-    bool? isActive,
-    DateTime? createdAt,
-  }) =>
-      PriceAlert(
-        id: id ?? this.id,
-        productId: productId ?? this.productId,
-        sku: sku ?? this.sku,
+  /// Precio actual según el servidor (en la talla si se fijó). `null` = sin stock.
+  final double? currentPrice;
+
+  bool get isTriggered => isActive && triggeredAt != null;
+
+  PriceAlert copyWith({bool? isActive, double? targetPrice}) => PriceAlert(
+        id: id,
+        productId: productId,
+        sku: sku,
         targetPrice: targetPrice ?? this.targetPrice,
-        targetSize: targetSize != null ? targetSize() : this.targetSize,
+        targetSize: targetSize,
         isActive: isActive ?? this.isActive,
-        createdAt: createdAt ?? this.createdAt,
+        createdAt: createdAt,
+        // Pausar limpia el disparo (el servidor hace lo mismo al reevaluar).
+        triggeredAt: (isActive ?? this.isActive) ? triggeredAt : null,
+        triggeredPrice: (isActive ?? this.isActive) ? triggeredPrice : null,
+        currentPrice: currentPrice,
       );
 
   Map<String, dynamic> toJson() => {
@@ -93,6 +74,9 @@ class PriceAlert {
         'targetSize': targetSize,
         'isActive': isActive,
         'createdAt': createdAt.toIso8601String(),
+        'triggeredAt': triggeredAt?.toIso8601String(),
+        'triggeredPrice': triggeredPrice,
+        'currentPrice': currentPrice,
       };
 
   @override
@@ -105,13 +89,17 @@ class PriceAlert {
           other.targetPrice == targetPrice &&
           other.targetSize == targetSize &&
           other.isActive == isActive &&
-          other.createdAt == createdAt;
+          other.createdAt == createdAt &&
+          other.triggeredAt == triggeredAt &&
+          other.triggeredPrice == triggeredPrice &&
+          other.currentPrice == currentPrice;
 
   @override
-  int get hashCode =>
-      Object.hash(id, productId, sku, targetPrice, targetSize, isActive, createdAt);
+  int get hashCode => Object.hash(
+        id, productId, sku, targetPrice, targetSize, isActive, createdAt, triggeredAt, triggeredPrice, currentPrice);
 
   @override
   String toString() =>
-      'PriceAlert($id, $sku, size: ${targetSize ?? 'any'}, ≤€$targetPrice, active: $isActive)';
+      'PriceAlert($id, $sku, size: ${targetSize ?? 'any'}, ≤€$targetPrice, active: $isActive, '
+      'triggered: ${triggeredAt != null})';
 }

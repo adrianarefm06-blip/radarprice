@@ -55,16 +55,21 @@ void main() {
   });
 
   group('MockAlertRepository', () {
-    test('toggle y create persisten en memoria', () async {
-      await alerts.toggleAlert('alert_seed_j4');
-      final toggled = (await alerts.getAlerts()).firstWhere((a) => a.id == 'alert_seed_j4');
-      expect(toggled.isActive, isFalse);
+    test('setActive, create y delete persisten en memoria', () async {
+      await alerts.setActive('alert_seed_j4', isActive: false);
+      final paused = (await alerts.getAlerts()).firstWhere((a) => a.id == 'alert_seed_j4');
+      expect(paused.isActive, isFalse);
 
-      final draft = PriceAlert.draft(productId: 'prd_hq8708', sku: 'HQ8708', targetPrice: 85);
-      await alerts.createAlert(draft);
-      expect((await alerts.getAlerts()).first, draft);
-      expect(alerts.createAlert(draft), throwsA(isA<AlertAlreadyExistsException>()));
-      expect(alerts.toggleAlert('nope'), throwsA(isA<AlertNotFoundException>()));
+      final created = await alerts.createAlert(sku: 'HQ8708', targetPrice: 85, targetSize: '42');
+      expect((await alerts.getAlerts()).first, created);
+      expect(
+        alerts.createAlert(sku: 'HQ8708', targetPrice: 70, targetSize: '42'),
+        throwsA(isA<AlertConflictException>()),
+      );
+      await alerts.deleteAlert(created.id);
+      expect((await alerts.getAlerts()).map((a) => a.id), isNot(contains(created.id)));
+      expect(alerts.setActive('nope', isActive: true), throwsA(isA<AlertNotFoundException>()));
+      expect(alerts.deleteAlert('nope'), throwsA(isA<AlertNotFoundException>()));
     });
   });
 
@@ -93,9 +98,9 @@ void main() {
       expect(results.single.sku, 'HF5441-100');
     });
 
-    test('alertsProvider toggle optimista', () async {
+    test('alertsProvider setActive optimista', () async {
       await container.read(alertsProvider.future);
-      await container.read(alertsProvider.notifier).toggle('alert_seed_dunk');
+      await container.read(alertsProvider.notifier).setActive('alert_seed_dunk', isActive: true);
       final dunk = container.read(alertsProvider).requireValue.firstWhere((a) => a.id == 'alert_seed_dunk');
       expect(dunk.isActive, isTrue);
     });

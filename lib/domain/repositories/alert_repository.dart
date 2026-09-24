@@ -1,13 +1,17 @@
 import '../models/models.dart';
 
+/// Alertas del dispositivo. Errores: [AppException] (`AlertNotFoundException`,
+/// `AlertConflictException` si está duplicada o se alcanzó el límite, red…).
 abstract interface class AlertRepository {
-  /// Alertas del usuario, más recientes primero.
+  /// Alertas del dispositivo, más recientes primero.
   Future<List<PriceAlert>> getAlerts();
 
-  /// Activa/pausa. Lanza `AlertNotFoundException` si no existe.
-  Future<void> toggleAlert(String alertId);
+  /// Crea una alerta activa. El servidor asigna el id y la evalúa al momento.
+  /// Lanza `ArgumentError` si [targetPrice] <= 0.
+  Future<PriceAlert> createAlert({required String sku, required double targetPrice, String? targetSize});
 
-  /// Lanza `AlertAlreadyExistsException` si el id está duplicado y
-  /// `ArgumentError` si [PriceAlert.targetPrice] <= 0.
-  Future<void> createAlert(PriceAlert alert);
+  /// Pausa o reactiva. Devuelve el estado reevaluado por el servidor.
+  Future<PriceAlert> setActive(String alertId, {required bool isActive});
+
+  Future<void> deleteAlert(String alertId);
 }

@@ -24,10 +24,10 @@ final class AlertNotFoundException extends AppException {
   final String alertId;
 }
 
-final class AlertAlreadyExistsException extends AppException {
-  const AlertAlreadyExistsException(this.alertId) : super('La alerta ya existe: $alertId');
-
-  final String alertId;
+/// Alerta duplicada (misma zapatilla y talla) o límite de alertas alcanzado.
+/// [message] viene del servidor y es apto para mostrarse.
+final class AlertConflictException extends AppException {
+  const AlertConflictException(super.message);
 }
 
 /// Lanzada cuando una petición se descarta (p. ej. búsqueda superada por otra
