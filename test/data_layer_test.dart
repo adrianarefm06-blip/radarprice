@@ -29,11 +29,11 @@ void main() {
 
     test('hot deals ordenados por ahorro', () async {
       final deals = await products.getHotDeals();
-      expect(deals.map((p) => p.sku), ['HQ8708', 'DD1391-100', 'DH6927-111']);
+      expect(deals.map((p) => p.sku), ['HQ8708', 'HF5441-100', 'DH6927-111']);
     });
 
     test('búsqueda por texto y talla', () async {
-      expect((await products.searchProducts('panda')).single.sku, 'DD1391-100');
+      expect((await products.searchProducts('panda')).single.sku, 'HF5441-100');
       expect((await products.searchProducts('jordan military')).single.sku, 'DH6927-111');
       expect(await products.searchProducts(''), hasLength(3));
       expect(await products.searchProducts('yeezy'), isEmpty);
@@ -90,7 +90,7 @@ void main() {
       const params = (query: 'dunk', size: '44');
       container.listen(productSearchProvider(params), (_, __) {});
       final results = await container.read(productSearchProvider(params).future);
-      expect(results.single.sku, 'DD1391-100');
+      expect(results.single.sku, 'HF5441-100');
     });
 
     test('alertsProvider toggle optimista', () async {

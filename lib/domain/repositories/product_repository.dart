@@ -6,6 +6,10 @@ abstract interface class ProductRepository {
   /// Feed principal, ordenado por mayor ahorro frente a retail.
   Future<List<Product>> getHotDeals();
 
+  /// Catálogo completo (todas las páginas), orden estable por SKU.
+  /// Fuente de Chollos, tiendas y favoritos: nunca se trunca.
+  Future<List<Product>> getCatalog();
+
   /// Búsqueda por marca/modelo/SKU. Query vacía = catálogo completo.
   /// Con [size], solo productos con stock en esa talla.
   Future<List<Product>> searchProducts(String query, {String? size});

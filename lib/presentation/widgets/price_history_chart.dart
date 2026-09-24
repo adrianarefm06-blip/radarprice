@@ -12,8 +12,9 @@ import '../utils/formatters.dart';
 import 'shimmer.dart';
 import 'state_views.dart';
 
-/// Histórico de precio mínimo con selector 30d / 90d.
-/// Muestra el retail como referencia discontinua y un tooltip con fecha y precio.
+/// Histórico de precio mínimo con selector 30d / 90d (30d por defecto).
+/// Marca el mínimo histórico (serie de [allTimeDays] días), muestra el retail como
+/// referencia discontinua y un tooltip con fecha y precio.
 class PriceHistoryChart extends ConsumerStatefulWidget {
   const PriceHistoryChart({super.key, required this.product, this.chartHeight = 180});
 
@@ -22,12 +23,18 @@ class PriceHistoryChart extends ConsumerStatefulWidget {
 
   static const ranges = [30, 90];
 
+  /// Ventana del "mínimo histórico" (límite del backend).
+  static const allTimeDays = 365;
+
+  /// Por debajo de esto no hay curva que dibujar.
+  static const minPoints = 2;
+
   @override
   ConsumerState<PriceHistoryChart> createState() => _PriceHistoryChartState();
 }
 
 class _PriceHistoryChartState extends ConsumerState<PriceHistoryChart> {
-  int _days = PriceHistoryChart.ranges.last;
+  int _days = PriceHistoryChart.ranges.first;
 
   /// Serie anterior visible mientras carga el nuevo rango (sin parpadeo).
   List<PricePoint>? _lastPoints;
@@ -39,6 +46,11 @@ class _PriceHistoryChartState extends ConsumerState<PriceHistoryChart> {
     final history = ref.watch(priceHistoryProvider(_params));
     if (history.hasValue) _lastPoints = history.requireValue;
     final points = _lastPoints;
+    // Secundario: si falla, se usa el mínimo de la ventana visible.
+    final allTime = ref.watch(
+      priceHistoryProvider((sku: widget.product.sku, days: PriceHistoryChart.allTimeDays)),
+    );
+    final allTimeLow = allTime.hasValue ? lowestPricePoint(allTime.requireValue) : null;
     final text = Theme.of(context).textTheme;
 
     return Column(
@@ -46,7 +58,7 @@ class _PriceHistoryChartState extends ConsumerState<PriceHistoryChart> {
       children: [
         Row(
           children: [
-            Expanded(child: Text('Evolución del precio', style: text.titleSmall)),
+            Expanded(child: Text('Historial de precios', style: text.titleSmall)),
             _RangeToggle(
               ranges: PriceHistoryChart.ranges,
               selected: _days,
@@ -63,8 +75,10 @@ class _PriceHistoryChartState extends ConsumerState<PriceHistoryChart> {
               onRetry: () => ref.invalidate(priceHistoryProvider(_params)),
             ),
           )
-        else if (points == null || points.length < 2)
+        else if (points == null)
           _ChartSkeleton(height: widget.chartHeight)
+        else if (points.length < PriceHistoryChart.minPoints)
+          _HistoryPlaceholder(height: widget.chartHeight)
         else
           AnimatedOpacity(
             opacity: history.isLoading ? 0.5 : 1,
@@ -72,6 +86,7 @@ class _PriceHistoryChartState extends ConsumerState<PriceHistoryChart> {
             child: _ChartContent(
               points: points,
               retailPrice: widget.product.retailPrice,
+              allTimeLow: allTimeLow,
               days: _days,
               height: widget.chartHeight,
             ),
@@ -85,12 +100,14 @@ class _ChartContent extends StatelessWidget {
   const _ChartContent({
     required this.points,
     required this.retailPrice,
+    required this.allTimeLow,
     required this.days,
     required this.height,
   });
 
   final List<PricePoint> points;
   final double retailPrice;
+  final PricePoint? allTimeLow;
   final int days;
   final double height;
 
@@ -100,6 +117,12 @@ class _ChartContent extends StatelessWidget {
     final prices = points.map((p) => p.price);
     final minPrice = prices.reduce(math.min);
     final maxPrice = prices.reduce(math.max);
+    final windowLow = lowestPricePoint(points)!;
+    final lowIndex = points.lastIndexOf(windowLow);
+    // Mínimo histórico: el de la serie larga salvo que la ventana tenga uno igual o menor.
+    final allTime = allTimeLow;
+    final lowIsHistoric = allTime == null || allTime.price >= windowLow.price;
+    final historicLow = lowIsHistoric ? windowLow : allTime;
 
     // El rango vertical incluye el retail para que la referencia siempre se vea.
     final low = math.min(minPrice, retailPrice);
@@ -112,7 +135,12 @@ class _ChartContent extends StatelessWidget {
       children: [
         Row(
           children: [
-            _Stat(label: 'Mínimo en $days días', value: formatPrice(minPrice), highlight: true),
+            _Stat(
+              label: 'Mínimo histórico',
+              value: formatPrice(historicLow.price),
+              caption: formatShortDate(historicLow.date, withYear: true),
+              highlight: true,
+            ),
             const SizedBox(width: 24),
             _Stat(label: 'Máximo en $days días', value: formatPrice(maxPrice)),
           ],
@@ -141,6 +169,21 @@ class _ChartContent extends StatelessWidget {
                 ),
                 extraLinesData: ExtraLinesData(
                   horizontalLines: [
+                    HorizontalLine(
+                      y: windowLow.price,
+                      color: AppColors.deal.withValues(alpha: 0.6),
+                      strokeWidth: 1,
+                      dashArray: const [2, 4],
+                      label: HorizontalLineLabel(
+                        show: true,
+                        alignment: Alignment.bottomRight,
+                        padding: const EdgeInsets.only(right: 2, top: 4),
+                        style: text.bodySmall?.copyWith(color: AppColors.deal, fontSize: 11),
+                        labelResolver: (_) => lowIsHistoric
+                            ? 'Mínimo histórico ${formatPrice(windowLow.price)}'
+                            : 'Mínimo $days días ${formatPrice(windowLow.price)}',
+                      ),
+                    ),
                     HorizontalLine(
                       y: retailPrice,
                       color: AppColors.textMuted,
@@ -209,7 +252,15 @@ class _ChartContent extends StatelessWidget {
                     color: AppColors.deal,
                     barWidth: 2,
                     isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
+                    dotData: FlDotData(
+                      checkToShowDot: (spot, _) => spot.x.round() == lowIndex,
+                      getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                        radius: 4.5,
+                        color: AppColors.deal,
+                        strokeWidth: 2.5,
+                        strokeColor: AppColors.background,
+                      ),
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
                       gradient: LinearGradient(
@@ -241,10 +292,11 @@ class _ChartContent extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, this.highlight = false});
+  const _Stat({required this.label, required this.value, this.caption, this.highlight = false});
 
   final String label;
   final String value;
+  final String? caption;
   final bool highlight;
 
   @override
@@ -261,6 +313,10 @@ class _Stat extends StatelessWidget {
             color: highlight ? AppColors.deal : AppColors.textPrimary,
           ),
         ),
+        if (caption case final caption?) ...[
+          const SizedBox(height: 2),
+          Text(caption, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted)),
+        ],
       ],
     );
   }
@@ -347,4 +403,49 @@ class _ChartSkeleton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Sin puntos suficientes: producto recién añadido o sin sincronizaciones aún.
+class _HistoryPlaceholder extends StatelessWidget {
+  const _HistoryPlaceholder({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      height: height,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.tile),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.show_chart_rounded, size: 32, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          Text('Historial acumulándose con cada sincronización', style: text.titleSmall, textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text(
+            'Vuelve en unos días para ver cómo evoluciona el precio.',
+            style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Punto más barato; ante empate, el más reciente. `null` si [points] está vacío.
+PricePoint? lowestPricePoint(List<PricePoint> points) {
+  PricePoint? low;
+  for (final point in points) {
+    if (low == null || point.price <= low.price) low = point;
+  }
+  return low;
 }

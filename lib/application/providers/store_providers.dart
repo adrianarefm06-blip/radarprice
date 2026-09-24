@@ -4,10 +4,11 @@ import '../../domain/models/models.dart';
 import '../../domain/services/store_catalog.dart';
 import 'repository_providers.dart';
 
-/// Catálogo completo sin filtro de talla. Fuente única de Chollos por tienda.
+/// Catálogo completo (paginado, sin truncar) y sin filtro de talla.
+/// Fuente única de Chollos, tiendas, tallas disponibles y favoritos.
 /// Refresh: `ref.refresh(allDealsProvider.future)`.
 final allDealsProvider = FutureProvider<List<Product>>(
-  (ref) => ref.watch(productRepositoryProvider).getHotDeals(),
+  (ref) => ref.watch(productRepositoryProvider).getCatalog(),
 );
 
 // Derivados síncronos con `whenData`: comparten la petición de [allDealsProvider],

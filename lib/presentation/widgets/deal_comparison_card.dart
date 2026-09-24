@@ -12,7 +12,7 @@ import 'store_logo.dart';
 /// Tarjeta del feed "Mejores chollos": descuento máximo + comparador de tiendas.
 /// Presentacional (sin Riverpod): recibe la comparación ya calculada.
 class DealComparisonCard extends StatelessWidget {
-  const DealComparisonCard({super.key, required this.deal, this.onTap, this.onQuoteTap});
+  const DealComparisonCard({super.key, required this.deal, this.onTap, this.onQuoteTap, this.action});
 
   final DealComparison deal;
   final VoidCallback? onTap;
@@ -20,12 +20,16 @@ class DealComparisonCard extends StatelessWidget {
   /// Tap sobre una tienda con stock (p. ej. abrir su web).
   final ValueChanged<StoreQuote>? onQuoteTap;
 
+  /// Acción en la esquina superior derecha (p. ej. botón de favorito).
+  final Widget? action;
+
   @override
   Widget build(BuildContext context) {
     final product = deal.product;
     final text = Theme.of(context).textTheme;
     final colorway = product.colorway;
     final showRetail = (deal.bestPrice - product.retailPrice).abs() >= 0.01;
+    final action = this.action;
 
     return Material(
       color: AppColors.surface,
@@ -47,7 +51,19 @@ class DealComparisonCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(product.brand, style: text.labelLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.brand,
+                                style: text.labelLarge,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ?action,
+                          ],
+                        ),
                         const SizedBox(height: 2),
                         Text(product.model, style: text.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                         if (colorway != null && colorway.isNotEmpty) ...[
@@ -162,11 +178,13 @@ class _QuoteChip extends StatelessWidget {
     final price = quote.price;
     final cheapest = quote.isCheapest;
     final size = quote.size;
+    final simulated = quote.offer?.isSimulated ?? false;
     final text = Theme.of(context).textTheme;
 
     final label = price == null
         ? '${quote.storeName}: sin stock'
-        : '${quote.storeName}: ${formatPrice(price)}${showSize && size != null ? ', talla EU $size' : ''}'
+        : '${quote.storeName}: ${formatPrice(price)}${simulated ? ' estimado' : ''}'
+            '${showSize && size != null ? ', talla EU $size' : ''}'
             '${cheapest ? ', mejor precio' : ''}';
 
     return Semantics(
@@ -214,12 +232,39 @@ class _QuoteChip extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text('EU $size', style: text.labelSmall?.copyWith(color: AppColors.textMuted)),
                       ],
+                      if (simulated) ...[
+                        const SizedBox(width: 4),
+                        const EstimatedTag(),
+                      ],
                     ],
                   ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Marca de precio de demostración (oferta `simulated`): nunca se presenta como real.
+class EstimatedTag extends StatelessWidget {
+  const EstimatedTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Precio estimado (dato de demostración, no leído de la tienda)',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.badge),
+          border: Border.all(color: AppColors.textMuted),
+        ),
+        child: Text(
+          'Est.',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textMuted),
         ),
       ),
     );

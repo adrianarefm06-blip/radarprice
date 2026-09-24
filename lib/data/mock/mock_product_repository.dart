@@ -25,6 +25,12 @@ class MockProductRepository implements ProductRepository {
   static const int _historyHorizonDays = 365;
 
   @override
+  Future<List<Product>> getCatalog() async {
+    await _simulateNetwork();
+    return List.unmodifiable([..._catalog]..sort((a, b) => a.sku.compareTo(b.sku)));
+  }
+
+  @override
   Future<List<Product>> getHotDeals() async {
     await _simulateNetwork();
     final ranked = [..._catalog]..sort((a, b) => b.savingsPercent.compareTo(a.savingsPercent));

@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/store_launcher.dart';
 import '../widgets/discount_badge.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/price_history_chart.dart';
 import '../widgets/price_line.dart';
 import '../widgets/product_card.dart';
@@ -31,7 +32,7 @@ class ProductDetailScreen extends ConsumerWidget {
     final product = productAsync.hasValue ? productAsync.requireValue : initialProduct;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(actions: [FavoriteButton(sku: sku), const SizedBox(width: 8)]),
       body: product != null
           ? _DetailBody(product: product)
           : productAsync.hasError
@@ -224,7 +225,7 @@ class _OfferRow extends StatelessWidget {
             Text(offer.storeName, style: text.titleSmall),
             const SizedBox(height: 2),
             Text(
-              offer.inStock ? 'En stock' : 'Agotado',
+              '${offer.inStock ? 'En stock' : 'Agotado'}${offer.isSimulated ? ' · precio estimado' : ''}',
               style: text.bodySmall?.copyWith(color: offer.inStock ? AppColors.deal : AppColors.textMuted),
             ),
           ],

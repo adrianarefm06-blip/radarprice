@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:http/http.dart' as http;
 
 import '../../core/errors/app_exceptions.dart';
@@ -21,7 +22,8 @@ class HttpProductRepository implements ProductRepository {
     required String baseUrl,
     http.Client? client,
     this.timeout = const Duration(seconds: 10),
-  })  : _baseUri = _normalizeBase(baseUrl),
+    bool requireHttps = kReleaseMode,
+  })  : _baseUri = _normalizeBase(baseUrl, requireHttps: requireHttps),
         _client = client ?? http.Client(),
         _ownsClient = client == null;
 
@@ -33,6 +35,12 @@ class HttpProductRepository implements ProductRepository {
   static const _apiPrefix = 'api/v1';
   static const _headers = {'Accept': 'application/json'};
 
+  /// Tamaño de página de `/products` (máximo del backend: 500).
+  static const catalogPageSize = 200;
+
+  /// Tope de seguridad ante un backend que no pagine bien (≈20 000 productos).
+  static const _maxCatalogPages = 100;
+
   // ---------------------------------------------------------------------------
   // ProductRepository
   // ---------------------------------------------------------------------------
@@ -42,6 +50,21 @@ class HttpProductRepository implements ProductRepository {
   Future<List<Product>> getHotDeals() async {
     final json = await _getJson(_uri('products/deals'));
     return _parseList(json, Product.fromJson);
+  }
+
+  @override
+  Future<List<Product>> getCatalog() async {
+    final all = <Product>[];
+    for (var page = 0; page < _maxCatalogPages; page++) {
+      final json = await _getJson(_uri('products', {
+        'limit': '$catalogPageSize',
+        'offset': '${page * catalogPageSize}',
+      }));
+      final items = _parseList(json, Product.fromJson);
+      all.addAll(items);
+      if (items.length < catalogPageSize) return List.unmodifiable(all);
+    }
+    throw const UnexpectedResponseException('El catálogo supera el máximo de páginas admitido');
   }
 
   @override
@@ -86,10 +109,14 @@ class HttpProductRepository implements ProductRepository {
   // HTTP
   // ---------------------------------------------------------------------------
 
-  static Uri _normalizeBase(String baseUrl) {
+  static Uri _normalizeBase(String baseUrl, {required bool requireHttps}) {
     final uri = Uri.tryParse(baseUrl.trim());
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       throw ArgumentError.value(baseUrl, 'baseUrl', 'Se requiere una URL absoluta');
+    }
+    // Release: nunca tráfico en claro. Define --dart-define=API_BASE_URL=https://…
+    if (requireHttps && uri.scheme != 'https') {
+      throw ArgumentError.value(baseUrl, 'baseUrl', 'En release la API debe servirse por HTTPS');
     }
     return uri.path.endsWith('/') ? uri : uri.replace(path: '${uri.path}/');
   }

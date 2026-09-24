@@ -98,7 +98,7 @@ List<Product> buildMockCatalog() => List.unmodifiable([
         ],
       ),
       _product(
-        sku: 'DD1391-100',
+        sku: 'HF5441-100',
         brand: 'Nike',
         model: 'Dunk Low Retro "White Black" (Panda)',
         retailPrice: 119.99,
