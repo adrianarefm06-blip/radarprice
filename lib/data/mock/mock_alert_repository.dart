@@ -56,7 +56,7 @@ class MockAlertRepository implements AlertRepository {
         PriceAlert(
           id: 'alert_seed_dunk',
           productId: 'prd_dd1391-100',
-          sku: 'DD1391-100',
+          sku: 'HF5441-100',
           targetPrice: 95,
           targetSize: '43',
           isActive: false,

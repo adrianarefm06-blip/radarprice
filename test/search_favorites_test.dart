@@ -49,9 +49,9 @@ class _CountingRepository extends MockProductRepository {
   int calls = 0;
 
   @override
-  Future<List<Product>> getHotDeals() {
+  Future<List<Product>> getCatalog() {
     calls++;
-    return super.getHotDeals();
+    return super.getCatalog();
   }
 }
 

@@ -65,12 +65,12 @@ final _catalog = [_men, _women, _unisex, _soldOut];
 class _CountingRepository extends MockProductRepository {
   _CountingRepository() : super(catalog: _catalog, latency: Duration.zero);
 
-  int hotDealsCalls = 0;
+  int catalogCalls = 0;
 
   @override
-  Future<List<Product>> getHotDeals() {
-    hotDealsCalls++;
-    return super.getHotDeals();
+  Future<List<Product>> getCatalog() {
+    catalogCalls++;
+    return super.getCatalog();
   }
 }
 
@@ -160,7 +160,7 @@ void main() {
       container.read(selectedSizeFilterProvider.notifier).select('44');
       expect(skus(), isEmpty);
 
-      expect(repository.hotDealsCalls, 1);
+      expect(repository.catalogCalls, 1);
     });
 
     test('acepta tallas de la API fuera de las listas fijas', () {

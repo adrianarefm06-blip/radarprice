@@ -1,13 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permiso obligatorio para acceder a Internet y a la API local -->
+    <!-- Permiso obligatorio para acceder a Internet. HTTP en claro solo en debug/profile. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="radarprice"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"

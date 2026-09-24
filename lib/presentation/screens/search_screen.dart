@@ -182,7 +182,7 @@ class _EmptyResults extends ConsumerWidget {
       title: query.isEmpty ? 'Sin stock en $scope' : 'Sin resultados para «$query»',
       message: query.isEmpty
           ? 'Ninguna tienda tiene zapatillas en $scope ahora mismo.'
-          : 'No hay coincidencias con stock en $scope. Prueba con la marca o el SKU, por ejemplo DD1391-100.',
+          : 'No hay coincidencias con stock en $scope. Prueba con la marca o el SKU, por ejemplo HF5441-100.',
       actionLabel: size == null ? null : 'Ver todas las tallas',
       onAction: size == null ? null : () => ref.read(searchSizeFilterProvider.notifier).selectSize(null),
     );
