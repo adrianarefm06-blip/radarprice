@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show immutable;
 
+import 'product_gender.dart';
 import 'store_offer.dart';
 
 /// Zapatilla del catálogo con sus ofertas agrupadas por talla EU.
@@ -20,6 +21,8 @@ class Product {
     required this.lowestPrice,
     required this.retailPrice,
     required Map<String, List<StoreOffer>> sizeOffers,
+    this.colorway,
+    this.gender = ProductGender.unisex,
   }) : sizeOffers = _freeze(sizeOffers);
 
   /// Construye calculando [lowestPrice] desde las ofertas en stock.
@@ -32,6 +35,8 @@ class Product {
     required String imageUrl,
     required double retailPrice,
     required Map<String, List<StoreOffer>> sizeOffers,
+    String? colorway,
+    ProductGender gender = ProductGender.unisex,
   }) =>
       Product(
         id: id,
@@ -42,6 +47,8 @@ class Product {
         lowestPrice: computeLowestPrice(sizeOffers) ?? retailPrice,
         retailPrice: retailPrice,
         sizeOffers: sizeOffers,
+        colorway: colorway,
+        gender: gender,
       );
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -54,6 +61,8 @@ class Product {
       imageUrl: json['imageUrl'] as String,
       lowestPrice: (json['lowestPrice'] as num).toDouble(),
       retailPrice: (json['retailPrice'] as num).toDouble(),
+      colorway: json['colorway'] as String?,
+      gender: ProductGender.fromApi(json['gender']),
       sizeOffers: {
         for (final MapEntry(key: size, value: offers) in rawOffers.entries)
           size: [
@@ -72,6 +81,10 @@ class Product {
   final double lowestPrice;
   final double retailPrice;
   final Map<String, List<StoreOffer>> sizeOffers;
+
+  /// Colores oficiales, p. ej. "White/Black". `null` si la API no lo informa.
+  final String? colorway;
+  final ProductGender gender;
 
   static const _deepEquality = DeepCollectionEquality();
 
@@ -159,6 +172,8 @@ class Product {
     double? lowestPrice,
     double? retailPrice,
     Map<String, List<StoreOffer>>? sizeOffers,
+    String? colorway,
+    ProductGender? gender,
   }) =>
       Product(
         id: id ?? this.id,
@@ -169,6 +184,8 @@ class Product {
         lowestPrice: lowestPrice ?? this.lowestPrice,
         retailPrice: retailPrice ?? this.retailPrice,
         sizeOffers: sizeOffers ?? this.sizeOffers,
+        colorway: colorway ?? this.colorway,
+        gender: gender ?? this.gender,
       );
 
   Map<String, dynamic> toJson() => {
@@ -179,6 +196,8 @@ class Product {
         'imageUrl': imageUrl,
         'lowestPrice': lowestPrice,
         'retailPrice': retailPrice,
+        'colorway': colorway,
+        'gender': gender.apiValue,
         'sizeOffers': {
           for (final MapEntry(key: size, value: offers) in sizeOffers.entries)
             size: [for (final offer in offers) offer.toJson()],
@@ -196,6 +215,8 @@ class Product {
           other.imageUrl == imageUrl &&
           other.lowestPrice == lowestPrice &&
           other.retailPrice == retailPrice &&
+          other.colorway == colorway &&
+          other.gender == gender &&
           _deepEquality.equals(other.sizeOffers, sizeOffers);
 
   @override
@@ -207,6 +228,8 @@ class Product {
         imageUrl,
         lowestPrice,
         retailPrice,
+        colorway,
+        gender,
         _deepEquality.hash(sizeOffers),
       );
 

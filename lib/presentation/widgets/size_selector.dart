@@ -3,15 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers/providers.dart';
-import '../../core/constants/sizes.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-/// Chips ligados a [selectedSizeFilterProvider] (Chollos por tienda y detalle).
+/// Chips ligados a [selectedSizeFilterProvider] (Chollos, tienda y detalle).
+/// [sizes] siempre sale de los datos reales (API), nunca de una lista fija.
 class SizeSelector extends ConsumerWidget {
   const SizeSelector({
     super.key,
-    this.sizes = kSupportedSizes,
+    required this.sizes,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
   });
 

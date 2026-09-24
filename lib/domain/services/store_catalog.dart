@@ -119,6 +119,8 @@ Product? productForStore(Product product, String storeName) {
     imageUrl: product.imageUrl,
     retailPrice: product.retailPrice,
     sizeOffers: scoped,
+    colorway: product.colorway,
+    gender: product.gender,
   );
 }
 

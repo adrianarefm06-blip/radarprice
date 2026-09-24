@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/providers/providers.dart';
 import '../../domain/models/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../utils/store_launcher.dart';
 import '../widgets/discount_badge.dart';
 import '../widgets/price_history_chart.dart';
 import '../widgets/price_line.dart';
@@ -53,6 +52,13 @@ class _DetailBody extends ConsumerWidget {
     final pricing = ProductPricing.of(product, size);
     final text = Theme.of(context).textTheme;
     final savings = pricing.savingsPercent;
+    // Tallas reales del producto (API). La activa se muestra aunque no exista aquí
+    // (viene de otra pantalla) para que el usuario pueda cambiarla o quitarla.
+    final productSizes = product.sizeOffers.keys.toList()..sort(Product.compareSizes);
+    final chipSizes = {...productSizes, ?size}.toList()..sort(Product.compareSizes);
+    final soldOut = product.availableSizes.isEmpty;
+    final sizeOffers = size == null ? const <StoreOffer>[] : product.offersForSize(size);
+    final colorway = product.colorway;
 
     Widget pad(Widget child) => Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child);
 
@@ -81,6 +87,10 @@ class _DetailBody extends ConsumerWidget {
         pad(Text(product.brand, style: text.labelLarge)),
         const SizedBox(height: 2),
         pad(Text(product.model, style: text.headlineSmall)),
+        if (colorway != null && colorway.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          pad(Text(colorway, style: text.bodyMedium?.copyWith(color: AppColors.textSecondary))),
+        ],
         const SizedBox(height: 14),
         pad(
           Row(
@@ -93,36 +103,78 @@ class _DetailBody extends ConsumerWidget {
         const SizedBox(height: 6),
         pad(Text('SKU ${product.sku}', style: text.bodySmall?.copyWith(color: AppColors.textMuted))),
         const SizedBox(height: 28),
-        pad(Text('Tu talla', style: text.titleSmall)),
-        const SizedBox(height: 10),
-        const SizeSelector(),
-        const SizedBox(height: 24),
-        pad(Text(size == null ? 'Mejor precio por talla' : 'Tiendas con la EU $size', style: text.titleSmall)),
-        const SizedBox(height: 10),
-        if (size == null)
-          for (final entry in _bestBySize(product))
-            pad(
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _SizeRow(
-                  size: entry.$1,
-                  offer: entry.$2,
-                  onTap: () => ref.read(selectedSizeFilterProvider.notifier).select(entry.$1),
+        if (soldOut)
+          pad(const _SoldOutNotice())
+        else ...[
+          pad(Text('Tu talla', style: text.titleSmall)),
+          const SizedBox(height: 10),
+          SizeSelector(sizes: chipSizes),
+          const SizedBox(height: 24),
+          pad(Text(size == null ? 'Mejor precio por talla' : 'Tiendas con la EU $size', style: text.titleSmall)),
+          const SizedBox(height: 10),
+          if (size == null)
+            for (final productSize in productSizes)
+              pad(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SizeRow(
+                    size: productSize,
+                    offer: product.bestOfferForSize(productSize),
+                    onTap: () => ref.read(selectedSizeFilterProvider.notifier).select(productSize),
+                  ),
                 ),
+              )
+          else if (sizeOffers.isEmpty)
+            pad(
+              Text(
+                'Ninguna tienda vende este modelo en la EU $size.',
+                style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
               ),
             )
-        else
-          for (final offer in product.offersForSize(size))
-            pad(Padding(padding: const EdgeInsets.only(bottom: 8), child: _OfferRow(offer: offer))),
+          else
+            for (final offer in sizeOffers)
+              pad(Padding(padding: const EdgeInsets.only(bottom: 8), child: _OfferRow(offer: offer))),
+        ],
         const SizedBox(height: 28),
         pad(PriceHistoryChart(product: product)),
       ],
     );
   }
+}
 
-  static List<(String, StoreOffer?)> _bestBySize(Product product) {
-    final sizes = product.sizeOffers.keys.toList()..sort(Product.compareSizes);
-    return [for (final size in sizes) (size, product.bestOfferForSize(size))];
+/// Sin stock en ninguna talla ni tienda.
+class _SoldOutNotice extends StatelessWidget {
+  const _SoldOutNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.tile),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inventory_2_outlined, color: AppColors.textMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Agotado temporalmente', style: text.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  'Ninguna tienda tiene tallas disponibles ahora mismo. Vuelve a mirar más tarde.',
+                  style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -158,35 +210,13 @@ class _OfferRow extends StatelessWidget {
 
   final StoreOffer offer;
 
-  /// Abre la tienda fuera de la app (navegador o app nativa de la tienda).
-  /// Solo http/https: nunca se lanzan esquemas arbitrarios desde datos remotos.
-  Future<void> _open(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final uri = Uri.tryParse(offer.affiliateUrl);
-    var opened = false;
-
-    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.isNotEmpty) {
-      try {
-        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } on PlatformException {
-        opened = false;
-      }
-    }
-
-    if (!opened) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('No se pudo abrir ${offer.storeName}. Comprueba que tienes un navegador instalado.')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Opacity(
       opacity: offer.inStock ? 1 : 0.5,
       child: _RowShell(
-        onTap: offer.inStock ? () => _open(context) : null,
+        onTap: offer.inStock ? () => openStoreOffer(context, offer) : null,
         leading: StoreLogo(logoUrl: offer.storeLogoUrl, storeName: offer.storeName, size: 28),
         middle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
