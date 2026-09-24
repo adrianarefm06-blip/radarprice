@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import 'estimated_tag.dart';
 import 'product_pricing.dart';
 
 /// Precio actual (menta si es chollo) + retail tachado como referencia.
+/// Si la mejor oferta es de demostración, añade la etiqueta "Est.": nunca se presenta como real.
 class PriceLine extends StatelessWidget {
   const PriceLine({super.key, required this.pricing, this.priceFontSize = 26});
 
@@ -33,6 +35,10 @@ class PriceLine extends StatelessWidget {
             color: pricing.isDeal ? AppColors.deal : AppColors.textPrimary,
           ),
         ),
+        if (pricing.bestOffer?.isSimulated ?? false) ...[
+          const SizedBox(width: 8),
+          const EstimatedTag(),
+        ],
         if (pricing.showsRetailReference) ...[
           const SizedBox(width: 8),
           Flexible(

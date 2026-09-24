@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:radarprice/domain/models/models.dart';
 import 'package:radarprice/domain/services/deal_comparison.dart';
 import 'package:radarprice/presentation/widgets/deal_comparison_card.dart';
+import 'package:radarprice/presentation/widgets/estimated_tag.dart';
+import 'package:radarprice/presentation/widgets/price_line.dart';
+import 'package:radarprice/presentation/widgets/product_pricing.dart';
 
 StoreOffer _offer(String store, double price, {bool simulated = false}) => StoreOffer(
       storeName: store,
@@ -61,5 +64,26 @@ void main() {
     ];
     expect(labels.where((l) => l.startsWith('StockX:') && l.contains('estimado')), hasLength(1));
     expect(labels.where((l) => l.startsWith('Nike:') && l.contains('estimado')), isEmpty);
+  });
+
+  testWidgets('PriceLine marca "Est." solo si la mejor oferta es simulada', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    Product product({required bool simulated}) => Product.fromOffers(
+          id: 'prd_1',
+          sku: 'SKU-1',
+          brand: 'Nike',
+          model: 'Dunk',
+          imageUrl: 'https://cdn.test/1.webp',
+          retailPrice: 120,
+          sizeOffers: {
+            '42': [_offer('StockX', 95, simulated: simulated), _offer('Nike', 119.99)],
+          },
+        );
+
+    for (final (simulated, tags) in [(true, 1), (false, 0)]) {
+      final pricing = ProductPricing.of(product(simulated: simulated), null);
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: PriceLine(pricing: pricing))));
+      expect(find.byType(EstimatedTag), findsNWidgets(tags), reason: 'simulated=$simulated');
+    }
   });
 }

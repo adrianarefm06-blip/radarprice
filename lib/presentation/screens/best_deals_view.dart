@@ -16,19 +16,35 @@ import '../widgets/size_selector.dart';
 import '../widgets/state_views.dart';
 
 /// Feed consolidado de todas las tiendas: filtros de segmento y talla + comparador.
+/// Los filtros se desplazan con la lista (en móvil ocupaban media pantalla fijos).
 /// Filtros y lista son widgets separados: cambiar un filtro solo reconstruye lo que depende de él.
 class BestDealsView extends StatelessWidget {
   const BestDealsView({super.key});
 
+  static const _listPadding = EdgeInsets.fromLTRB(16, 8, 16, 24);
+
+  Future<void> _refresh(ProviderContainer container) async {
+    try {
+      container.invalidate(allDealsProvider);
+      await container.read(allDealsProvider.future);
+    } catch (_) {
+      // El error queda reflejado en el estado; no romper el indicador.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _DealsFilters(),
-        SizedBox(height: 10),
-        Expanded(child: _DealsList()),
-      ],
+    return RefreshIndicator(
+      onRefresh: () => _refresh(ProviderScope.containerOf(context, listen: false)),
+      child: const CustomScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _DealsFilters()),
+          SliverToBoxAdapter(child: SizedBox(height: 10)),
+          _DealsProgress(),
+          _DealsBody(),
+        ],
+      ),
     );
   }
 }
@@ -60,10 +76,7 @@ class _DealsFilters extends ConsumerWidget {
             onChanged: ref.read(dealSegmentProvider.notifier).select,
           ),
         ),
-        if (chipSizes.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          SizeSelector(sizes: chipSizes),
-        ],
+        if (chipSizes.isNotEmpty) ...[const SizedBox(height: 10), SizeSelector(sizes: chipSizes)],
       ],
     );
   }
@@ -114,9 +127,7 @@ class _DealSearchFieldState extends ConsumerState<_DealSearchField> {
       elevation: const WidgetStatePropertyAll(0),
       backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
       constraints: const BoxConstraints(minHeight: 44, maxHeight: 44),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
-      ),
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control))),
     );
   }
 }
@@ -167,52 +178,46 @@ class _QuickFilters extends ConsumerWidget {
   }
 }
 
-class _DealsList extends ConsumerWidget {
-  const _DealsList();
-
-  static const _padding = EdgeInsets.fromLTRB(16, 8, 16, 24);
-
-  Future<void> _refresh(WidgetRef ref) async {
-    try {
-      ref.invalidate(allDealsProvider);
-      await ref.read(allDealsProvider.future);
-    } catch (_) {
-      // El error queda reflejado en el estado; no romper el indicador.
-    }
-  }
+/// Barra fina de recarga (con datos previos visibles).
+class _DealsProgress extends ConsumerWidget {
+  const _DealsProgress();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deals = ref.watch(filteredDealsProvider);
+    final reloading = ref.watch(filteredDealsProvider.select((d) => d.isLoading && d.hasValue));
+    return SliverToBoxAdapter(
+      child: SizedBox(height: 2, child: reloading ? const LinearProgressIndicator(minHeight: 2) : null),
+    );
+  }
+}
 
-    return Column(
-      children: [
-        SizedBox(
-          height: 2,
-          child: deals.isLoading && deals.hasValue ? const LinearProgressIndicator(minHeight: 2) : null,
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => _refresh(ref),
-            child: deals.when(
-              skipLoadingOnReload: true,
-              skipLoadingOnRefresh: true,
-              loading: () => ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: _padding,
-                itemCount: 3,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, __) => const ProductCardSkeleton(),
-              ),
-              error: (error, _) => PullToRefreshFill(
-                child: ErrorStateView(error: error, onRetry: () => ref.invalidate(allDealsProvider)),
-              ),
-              data: (items) => items.isEmpty ? const _EmptyDeals() : _DealsListView(items: items),
+/// Lista, carga, error o vacío, siempre como sliver.
+class _DealsBody extends ConsumerWidget {
+  const _DealsBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref
+        .watch(filteredDealsProvider)
+        .when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          loading: () => SliverPadding(
+            padding: BestDealsView._listPadding,
+            sliver: SliverList.separated(
+              itemCount: 3,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, __) => const ProductCardSkeleton(),
             ),
           ),
-        ),
-      ],
-    );
+          error: (error, _) => SliverFillRemaining(
+            hasScrollBody: false,
+            child: ErrorStateView(error: error, onRetry: () => ref.invalidate(allDealsProvider)),
+          ),
+          data: (items) => items.isEmpty
+              ? const SliverFillRemaining(hasScrollBody: false, child: _EmptyDeals())
+              : _DealsSliverList(items: items),
+        );
   }
 }
 
@@ -229,68 +234,64 @@ class _EmptyDeals extends ConsumerWidget {
 
     // Prioridad: el filtro más restrictivo que el usuario ha tocado explica el vacío.
     if (favoritesOnly) {
-      return PullToRefreshFill(
-        child: StateMessageView(
-          icon: Icons.favorite_border_rounded,
-          title: 'Sin favoritos que mostrar',
-          message: 'Pulsa el corazón de una zapatilla para guardarla. '
-              'Solo aparecen las que tienen stock con los filtros actuales.',
-          actionLabel: 'Ver todos los chollos',
-          onAction: ref.read(favoritesOnlyProvider.notifier).toggle,
-        ),
+      return StateMessageView(
+        icon: Icons.favorite_border_rounded,
+        title: 'Sin favoritos que mostrar',
+        message:
+            'Pulsa el corazón de una zapatilla para guardarla. '
+            'Solo aparecen las que tienen stock con los filtros actuales.',
+        actionLabel: 'Ver todos los chollos',
+        onAction: ref.read(favoritesOnlyProvider.notifier).toggle,
       );
     }
     if (query.isNotEmpty) {
-      return PullToRefreshFill(
-        child: StateMessageView(
-          icon: Icons.search_off_rounded,
-          title: 'Sin resultados para "$query"',
-          message: size == null
-              ? 'Prueba con otra marca, modelo, color o SKU.'
-              : 'Prueba con otro término o quita el filtro de la talla $size.',
-        ),
+      return StateMessageView(
+        icon: Icons.search_off_rounded,
+        title: 'Sin resultados para "$query"',
+        message: size == null
+            ? 'Prueba con otra marca, modelo, color o SKU.'
+            : 'Prueba con otro término o quita el filtro de la talla $size.',
       );
     }
 
-    return PullToRefreshFill(
-      child: StateMessageView(
-        icon: Icons.do_not_disturb_on_outlined,
-        title: size == null ? 'No hay ofertas en stock$segmentLabel' : 'No hay ofertas en stock para la talla $size',
-        message: size == null
-            ? 'Ninguna tienda tiene stock ahora mismo. Desliza hacia abajo para buscar de nuevo.'
-            : 'Prueba con otra talla, cambia de segmento o mira todas las tallas.',
-        actionLabel: size == null ? null : 'Ver todas las tallas',
-        onAction: size == null ? null : ref.read(selectedSizeFilterProvider.notifier).clear,
-      ),
+    return StateMessageView(
+      icon: Icons.do_not_disturb_on_outlined,
+      title: size == null ? 'No hay ofertas en stock$segmentLabel' : 'No hay ofertas en stock para la talla $size',
+      message: size == null
+          ? 'Ninguna tienda tiene stock ahora mismo. Desliza hacia abajo para buscar de nuevo.'
+          : 'Prueba con otra talla, cambia de segmento o mira todas las tallas.',
+      actionLabel: size == null ? null : 'Ver todas las tallas',
+      onAction: size == null ? null : ref.read(selectedSizeFilterProvider.notifier).clear,
     );
   }
 }
 
-class _DealsListView extends StatelessWidget {
-  const _DealsListView({required this.items});
+class _DealsSliverList extends StatelessWidget {
+  const _DealsSliverList({required this.items});
 
   final List<DealComparison> items;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: _DealsList._padding,
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final deal = items[index];
-        return DealComparisonCard(
-          key: ValueKey(deal.product.sku),
-          deal: deal,
-          action: FavoriteButton(sku: deal.product.sku),
-          onTap: () => AppRouter.openProduct(context, deal.product),
-          onQuoteTap: (quote) {
-            final offer = quote.offer;
-            if (offer != null) openStoreOffer(context, offer);
-          },
-        );
-      },
+    return SliverPadding(
+      padding: BestDealsView._listPadding,
+      sliver: SliverList.separated(
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final deal = items[index];
+          return DealComparisonCard(
+            key: ValueKey(deal.product.sku),
+            deal: deal,
+            action: FavoriteButton(sku: deal.product.sku),
+            onTap: () => AppRouter.openProduct(context, deal.product),
+            onQuoteTap: (quote) {
+              final offer = quote.offer;
+              if (offer != null) openStoreOffer(context, offer);
+            },
+          );
+        },
+      ),
     );
   }
 }

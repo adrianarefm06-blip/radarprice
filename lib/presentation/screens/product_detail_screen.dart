@@ -9,6 +9,7 @@ import '../utils/formatters.dart';
 import '../utils/store_launcher.dart';
 import '../widgets/create_alert_sheet.dart';
 import '../widgets/discount_badge.dart';
+import '../widgets/estimated_tag.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/price_history_chart.dart';
 import '../widgets/price_line.dart';
@@ -208,7 +209,13 @@ class _SizeRow extends StatelessWidget {
       ),
       trailing: best == null
           ? null
-          : Text(formatPrice(best.price), style: AppTypography.price(fontSize: 20)),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (best.isSimulated) ...[const EstimatedTag(), const SizedBox(width: 8)],
+                Text(formatPrice(best.price), style: AppTypography.price(fontSize: 20)),
+              ],
+            ),
     );
   }
 }
