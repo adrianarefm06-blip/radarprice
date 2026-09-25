@@ -14,8 +14,13 @@ import '../../infrastructure/repositories/shared_prefs_favorites_repository.dart
 /// Release: obligatorio `--dart-define=API_BASE_URL=https://…` (HTTP se rechaza).
 const kApiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
 
+/// Espera máxima por petición. Holgada por defecto: en el plan gratuito de Render el
+/// servidor se duerme y el primer acceso tarda en arrancar (después reintenta el ProviderScope).
+/// `--dart-define=API_TIMEOUT_SECONDS=60` para ampliarla.
+const kApiTimeout = Duration(seconds: int.fromEnvironment('API_TIMEOUT_SECONDS', defaultValue: 30));
+
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  final repository = HttpProductRepository(baseUrl: kApiBaseUrl);
+  final repository = HttpProductRepository(baseUrl: kApiBaseUrl, timeout: kApiTimeout);
   ref.onDispose(repository.dispose);
   return repository;
 });
@@ -25,7 +30,7 @@ final deviceIdStoreProvider = Provider<DeviceIdStore>((ref) => DeviceIdStore());
 
 /// Alertas en el servidor, aisladas por dispositivo. Tests: override con `MockAlertRepository`.
 final alertRepositoryProvider = Provider<AlertRepository>((ref) {
-  final api = ApiClient(baseUrl: kApiBaseUrl);
+  final api = ApiClient(baseUrl: kApiBaseUrl, timeout: kApiTimeout);
   ref.onDispose(api.dispose);
   return HttpAlertRepository(api: api, deviceId: ref.watch(deviceIdStoreProvider).read);
 });

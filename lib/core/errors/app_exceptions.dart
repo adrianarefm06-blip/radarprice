@@ -52,7 +52,8 @@ final class NetworkException extends AppException {
 }
 
 final class RequestTimeoutException extends AppException {
-  const RequestTimeoutException() : super('El servidor tarda demasiado en responder.');
+  const RequestTimeoutException()
+      : super('El servidor tarda en responder (puede estar arrancando). Inténtalo de nuevo en unos segundos.');
 
   @override
   bool get isRetryable => true;
