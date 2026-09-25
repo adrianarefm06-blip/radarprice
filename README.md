@@ -1,71 +1,49 @@
-# RadarPrice · Capa de datos (Agente 2)
+# RadarPrice (app Flutter)
 
-## Dependencias (`pubspec.yaml`)
-```yaml
-environment:
-  sdk: ^3.5.0
-dependencies:
-  flutter_riverpod: ^3.0.0   # compatible también con ^2.6.1
-  collection: ^1.18.0
-  google_fonts: ^6.2.1       # Agente 1: Archivo / Archivo Narrow
+Comparador de precios de zapatillas por talla entre tiendas, con favoritos, historial y alertas.
+Backend: [radarprice-api](https://github.com/adrianarefm06-blip/radarprice-api).
+
+## Ejecutar
+```bash
+flutter pub get
+
+# Backend local (emulador Android → 10.0.2.2)
+flutter run
+
+# Backend en Render (plan gratuito: el primer acceso tras dormir tarda ~1 min)
+flutter run --dart-define=API_BASE_URL=https://radarprice-api.onrender.com --dart-define=API_TIMEOUT_SECONDS=60
+
+# Release (HTTPS obligatorio: con http:// la app no arranca)
+flutter build apk --release --dart-define=API_BASE_URL=https://radarprice-api.onrender.com
 ```
-Sin codegen (no freezed/json_serializable): copiar y compilar.
-Los tests asumen `name: radarprice` en pubspec.
+
+| `--dart-define` | Por defecto | Uso |
+|---|---|---|
+| `API_BASE_URL` | `http://10.0.2.2:8000` | URL del backend; en release debe ser `https://` |
+| `API_TIMEOUT_SECONDS` | `30` | Espera máxima por petición (arranque en frío de Render) |
+
+HTTP en claro solo está permitido en los manifiestos de debug/profile de Android.
 
 ## Estructura
 ```
 lib/
-├── core/
-│   ├── constants/sizes.dart          kSupportedSizes
-│   └── errors/app_exceptions.dart    sealed AppException
-├── domain/
-│   ├── models/                       Product, StoreOffer, PricePoint, PriceAlert (+ models.dart)
-│   └── repositories/                 ProductRepository, AlertRepository (interfaces)
-├── data/mock/
-│   ├── mock_catalog.dart             3 modelos × 5 tallas × 3-4 tiendas (EUR)
-│   ├── mock_product_repository.dart  latencia 350 ms, histórico determinista
-│   └── mock_alert_repository.dart    persistencia en memoria + 3 alertas semilla
-└── application/providers/            providers.dart (barrel)
-test/data_layer_test.dart
+├── core/            constantes y AppException (errores de dominio con mensaje para el usuario)
+├── domain/          modelos (Product, StoreOffer, PriceAlert…), contratos de repositorio y
+│                    servicios puros (comparador de chollos, búsqueda y orden)
+├── infrastructure/  ApiClient + repositorios HTTP, favoritos (shared_preferences), X-Device-Id
+├── data/mock/       repositorios en memoria para tests
+├── application/     providers de Riverpod (catálogo, filtros, favoritos, alertas)
+└── presentation/    pantallas y widgets
 ```
 
-## Contrato para la UI (Agente 1)
-| Provider | Tipo | Uso |
-|---|---|---|
-| `selectedSizeFilterProvider` | `String?` | `.notifier.toggle('42.5')`, `.clear()` |
-| `hotDealsProvider` | `AsyncValue<List<Product>>` | Feed. Refresh: `ref.refresh(hotDealsProvider.future)` |
-| `productSearchProvider((query:, size:))` | `AsyncValue<List<Product>>` | Debounce 250 ms incluido |
-| `productBySkuProvider(sku)` | `AsyncValue<Product>` | Detalle |
-| `priceHistoryProvider((sku:, days:))` | `AsyncValue<List<PricePoint>>` | Gráfica |
-| `alertsProvider` | `AsyncValue<List<PriceAlert>>` | `.notifier.toggle(id)`, `.notifier.create(PriceAlert.draft(...))` |
+- El catálogo se carga una vez (`allDealsProvider`, paginado) y talla, segmento, búsqueda,
+  orden y favoritos se aplican en memoria.
+- Las ofertas de demostración (`source: "simulated"` en la API) se marcan siempre como "Est.".
+- Alertas en el servidor, aisladas por un id aleatorio del dispositivo.
 
-Helpers en `Product`: `availableSizes`, `offersForSize`, `bestOfferForSize`,
-`lowestPriceForSize`, `savingsPercent(ForSize)` (negativo = precio reventa > retail).
-`PriceAlert.isTriggeredBy(product)` para el badge "¡Objetivo alcanzado!".
-
-## Notas
-- `imageUrl`/`storeLogoUrl` apuntan a `cdn.radarprice.app` (placeholders): usar `errorBuilder`.
-- Riverpod 3 reintenta providers con error por defecto. Para no reintentar errores de dominio:
-  ```dart
-  ProviderScope(
-    retry: (count, error) => error is AppException || count >= 3 ? null : Duration(milliseconds: 200 << count),
-    child: const App(),
-  )
-  ```
-- Migración a backend: implementar `ProductRepository`/`AlertRepository` y cambiar
-  `repository_providers.dart`. Nada más.
-
-## Capa de presentación (Agente 1)
+## Calidad
+```bash
+flutter analyze --fatal-infos
+flutter test
 ```
-lib/
-├── main.dart                     ProviderScope(retry) + MaterialApp dark
-└── presentation/
-    ├── theme/                    AppColors, AppTheme, AppTypography, AppRadius
-    ├── router/app_router.dart    rutas '/' y '/product' (args: Product o SKU)
-    ├── utils/formatters.dart     formatPrice / formatPercent (es-ES, sin intl)
-    ├── screens/                  AppShell, Home, Search, Alerts, ProductDetail
-    └── widgets/                  ProductCard, SizeSelector, PriceLine, DiscountBadge,
-                                  SneakerImage, StoreLogo, Shimmer, StateViews
-```
-Reglas de diseño: menta = ahorro, naranja = sobre retail; el precio (Archivo Narrow,
-dígitos tabulares) es el protagonista; chip de talla activo en blanco invertido.
+El CI (GitHub Actions) ejecuta ambos en cada PR.
