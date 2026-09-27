@@ -1,0 +1,54 @@
+name: APK de prueba
+
+# Comprueba el contrato con el backend desplegado y genera un APK instalable apuntando a él.
+# Descarga: pestaña Actions → ejecución → Artifacts → "radarprice-apk".
+# El APK va firmado con la clave de debug: sirve para instalar a mano, no para Google Play.
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "URL del backend (HTTPS)"
+        required: false
+        default: "https://radarprice-api.onrender.com"
+  push:
+    branches: [main, "claude/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  API_BASE_URL: ${{ github.event.inputs.api_base_url || 'https://radarprice-api.onrender.com' }}
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+      - name: Dependencias
+        run: flutter pub get
+      - name: Contrato con el backend desplegado
+        run: flutter test test/live_api_test.dart --dart-define=LIVE_API_BASE_URL="$API_BASE_URL"
+      - name: Compilar APK
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=API_TIMEOUT_SECONDS=60
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radarprice-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
