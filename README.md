@@ -41,6 +41,10 @@ lib/
 - Las ofertas de demostración (`source: "simulated"` en la API) se marcan siempre como "Est.".
 - Alertas en el servidor, aisladas por un id aleatorio del dispositivo.
 - Fotos reales de las tiendas con caché en disco (`cached_network_image`); sin foto → monograma de la marca.
+- Avisos de alertas sin servidor de push: notificación local cuando una alerta se cumple. WorkManager
+  (Android) comprueba `/alerts` ~cada hora en segundo plano y también al abrir/volver a la app; tocar el aviso
+  abre la zapatilla. Permiso (Android 13+) al crear la primera alerta. Lógica pura y testeada en
+  `domain/services/alert_notifications.dart`.
 - Pantalla "Acerca de" (icono ⓘ en Chollos): procedencia de los datos, aviso de precios y privacidad,
   con enlace a `{API_BASE_URL}/privacidad`.
 - APK de prueba: workflow **APK de prueba** (Actions → ejecución → Artifacts → `radarprice-apk`).

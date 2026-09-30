@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/alert_checks.dart';
 import '../../application/providers/providers.dart';
 import '../../domain/models/models.dart';
 import '../theme/app_colors.dart';
@@ -93,6 +96,8 @@ class _CreateAlertSheetState extends ConsumerState<CreateAlertSheet> {
       final created = await ref
           .read(alertsProvider.notifier)
           .create(sku: widget.product.sku, targetPrice: target, targetSize: _size);
+      // Para avisar cuando se cumpla hace falta permiso de notificaciones (no bloquea la creación).
+      unawaited(requestAlertNotificationPermission().catchError((Object _) => false));
       if (mounted) Navigator.of(context).pop(created);
     } catch (error) {
       if (mounted) {

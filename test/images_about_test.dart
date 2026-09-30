@@ -63,6 +63,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Asphaltgold, Nike y Urban Jungle'), findsOneWidget);
+    expect(find.textContaining('notificación'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('No hay cuentas'), 200);
     expect(find.textContaining('No hay cuentas'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Política de privacidad completa'), 200);
     expect(find.text('Política de privacidad completa'), findsOneWidget);

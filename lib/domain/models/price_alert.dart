@@ -17,6 +17,8 @@ class PriceAlert {
     this.triggeredAt,
     this.triggeredPrice,
     this.currentPrice,
+    this.brand,
+    this.productName,
   });
 
   factory PriceAlert.fromJson(Map<String, dynamic> json) => PriceAlert(
@@ -33,6 +35,8 @@ class PriceAlert {
         },
         triggeredPrice: (json['triggeredPrice'] as num?)?.toDouble(),
         currentPrice: (json['currentPrice'] as num?)?.toDouble(),
+        brand: json['brand'] as String?,
+        productName: json['productName'] as String?,
       );
 
   final String id;
@@ -50,6 +54,17 @@ class PriceAlert {
   /// Precio actual según el servidor (en la talla si se fijó). `null` = sin stock.
   final double? currentPrice;
 
+  /// Para mostrar la alerta sin cargar el producto (p. ej. en una notificación). API antigua → null.
+  final String? brand;
+  final String? productName;
+
+  /// "adidas Campus 00s …" o, sin nombre, el SKU.
+  String get displayName => switch ((brand, productName)) {
+        (final String b, final String n) => '$b $n',
+        (_, final String n) => n,
+        _ => sku,
+      };
+
   bool get isTriggered => isActive && triggeredAt != null;
 
   PriceAlert copyWith({bool? isActive, double? targetPrice}) => PriceAlert(
@@ -64,6 +79,8 @@ class PriceAlert {
         triggeredAt: (isActive ?? this.isActive) ? triggeredAt : null,
         triggeredPrice: (isActive ?? this.isActive) ? triggeredPrice : null,
         currentPrice: currentPrice,
+        brand: brand,
+        productName: productName,
       );
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +94,8 @@ class PriceAlert {
         'triggeredAt': triggeredAt?.toIso8601String(),
         'triggeredPrice': triggeredPrice,
         'currentPrice': currentPrice,
+        'brand': brand,
+        'productName': productName,
       };
 
   @override
@@ -92,11 +111,25 @@ class PriceAlert {
           other.createdAt == createdAt &&
           other.triggeredAt == triggeredAt &&
           other.triggeredPrice == triggeredPrice &&
-          other.currentPrice == currentPrice;
+          other.currentPrice == currentPrice &&
+          other.brand == brand &&
+          other.productName == productName;
 
   @override
   int get hashCode => Object.hash(
-        id, productId, sku, targetPrice, targetSize, isActive, createdAt, triggeredAt, triggeredPrice, currentPrice);
+        id,
+        productId,
+        sku,
+        targetPrice,
+        targetSize,
+        isActive,
+        createdAt,
+        triggeredAt,
+        triggeredPrice,
+        currentPrice,
+        brand,
+        productName,
+      );
 
   @override
   String toString() =>

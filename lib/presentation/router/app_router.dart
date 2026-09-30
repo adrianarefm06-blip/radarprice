@@ -8,6 +8,12 @@ import '../screens/store_deals_screen.dart';
 import '../widgets/state_views.dart';
 
 abstract final class AppRouter {
+  /// Navegación sin BuildContext (p. ej. al tocar una notificación de alerta).
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
+  /// Abre el detalle por SKU desde fuera del árbol de widgets.
+  static void openSku(String sku) => navigatorKey.currentState?.pushNamed(productDetail, arguments: sku);
+
   static const shell = '/';
   static const productDetail = '/product';
   static const storeDeals = '/store';

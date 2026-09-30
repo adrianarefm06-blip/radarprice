@@ -61,6 +61,8 @@ class AboutScreen extends ConsumerWidget {
               'y te avisa cuando baja del precio que elijas.',
             ),
             paragraph('Los precios se actualizan automáticamente cada 6 horas.'),
+            paragraph('Cuando una alerta se cumple recibes una notificación: la app comprueba tus alertas '
+                'en segundo plano aproximadamente cada hora (y al abrirla).'),
           ]),
           section('Precios reales y estimados', [
             paragraph('$storesText se leen directamente de las webs de las tiendas.'),
