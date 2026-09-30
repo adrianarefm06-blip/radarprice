@@ -49,8 +49,17 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-            child: Text('RadarPrice', style: text.headlineMedium),
+            padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
+            child: Row(
+              children: [
+                Expanded(child: Text('RadarPrice', style: text.headlineMedium)),
+                IconButton(
+                  tooltip: 'Acerca de y privacidad',
+                  icon: const Icon(Icons.info_outline_rounded, color: AppColors.textSecondary),
+                  onPressed: () => AppRouter.openAbout(context),
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),

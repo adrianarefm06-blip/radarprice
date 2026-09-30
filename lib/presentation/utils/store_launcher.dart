@@ -5,10 +5,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/models.dart';
 
 /// Abre la tienda fuera de la app (navegador o app nativa de la tienda).
-/// Solo http/https: nunca se lanzan esquemas arbitrarios desde datos remotos.
-Future<void> openStoreOffer(BuildContext context, StoreOffer offer) async {
+Future<void> openStoreOffer(BuildContext context, StoreOffer offer) =>
+    openExternalUrl(context, offer.affiliateUrl, label: offer.storeName);
+
+/// Abre [url] fuera de la app. Solo http/https: nunca se lanzan esquemas arbitrarios
+/// desde datos remotos. Si falla, avisa con un SnackBar.
+Future<void> openExternalUrl(BuildContext context, String url, {String label = 'el enlace'}) async {
   final messenger = ScaffoldMessenger.of(context);
-  final uri = Uri.tryParse(offer.affiliateUrl);
+  final uri = Uri.tryParse(url);
   var opened = false;
 
   if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.isNotEmpty) {
@@ -21,7 +25,7 @@ Future<void> openStoreOffer(BuildContext context, StoreOffer offer) async {
 
   if (!opened) {
     messenger.showSnackBar(
-      SnackBar(content: Text('No se pudo abrir ${offer.storeName}. Comprueba que tienes un navegador instalado.')),
+      SnackBar(content: Text('No se pudo abrir $label. Comprueba que tienes un navegador instalado.')),
     );
   }
 }

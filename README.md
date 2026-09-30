@@ -40,6 +40,10 @@ lib/
   orden y favoritos se aplican en memoria.
 - Las ofertas de demostración (`source: "simulated"` en la API) se marcan siempre como "Est.".
 - Alertas en el servidor, aisladas por un id aleatorio del dispositivo.
+- Fotos reales de las tiendas con caché en disco (`cached_network_image`); sin foto → monograma de la marca.
+- Pantalla "Acerca de" (icono ⓘ en Chollos): procedencia de los datos, aviso de precios y privacidad,
+  con enlace a `{API_BASE_URL}/privacidad`.
+- APK de prueba: workflow **APK de prueba** (Actions → ejecución → Artifacts → `radarprice-apk`).
 
 ## Calidad
 ```bash
