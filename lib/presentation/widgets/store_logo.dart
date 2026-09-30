@@ -11,27 +11,27 @@ class StoreLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initial = ColoredBox(
+      color: AppColors.surfaceRaised,
+      child: Center(
+        child: Text(
+          storeName.isEmpty ? '?' : storeName.substring(0, 1).toUpperCase(),
+          style: TextStyle(fontSize: size * 0.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+        ),
+      ),
+    );
     return ClipOval(
       child: SizedBox.square(
         dimension: size,
-        child: Image.network(
-          logoUrl,
-          fit: BoxFit.cover,
-          semanticLabel: storeName,
-          errorBuilder: (context, error, stackTrace) => ColoredBox(
-            color: AppColors.surfaceRaised,
-            child: Center(
-              child: Text(
-                storeName.isEmpty ? '?' : storeName.substring(0, 1).toUpperCase(),
-                style: TextStyle(
-                  fontSize: size * 0.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ),
-        ),
+        // Sin logo alojado (la API devuelve ""): inicial de la tienda sin petición de red.
+        child: logoUrl.startsWith('https://')
+            ? Image.network(
+                logoUrl,
+                fit: BoxFit.cover,
+                semanticLabel: storeName,
+                errorBuilder: (context, error, stackTrace) => initial,
+              )
+            : Semantics(label: storeName, child: initial),
       ),
     );
   }

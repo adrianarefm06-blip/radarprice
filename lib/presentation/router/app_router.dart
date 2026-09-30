@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/models/models.dart';
+import '../screens/about_screen.dart';
 import '../screens/app_shell.dart';
 import '../screens/product_detail_screen.dart';
 import '../screens/store_deals_screen.dart';
@@ -10,6 +11,7 @@ abstract final class AppRouter {
   static const shell = '/';
   static const productDetail = '/product';
   static const storeDeals = '/store';
+  static const about = '/about';
 
   /// Pasa el [Product] ya cargado para pintar el detalle al instante (y animar el Hero).
   static Future<void> openProduct(BuildContext context, Product product) =>
@@ -17,6 +19,8 @@ abstract final class AppRouter {
 
   static Future<void> openStore(BuildContext context, String storeName) =>
       Navigator.of(context).pushNamed(storeDeals, arguments: storeName);
+
+  static Future<void> openAbout(BuildContext context) => Navigator.of(context).pushNamed(about);
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) => switch ((settings.name, settings.arguments)) {
         (shell, _) => MaterialPageRoute<void>(settings: settings, builder: (_) => const AppShell()),
@@ -28,6 +32,7 @@ abstract final class AppRouter {
             settings: settings,
             builder: (_) => ProductDetailScreen(sku: sku),
           ),
+        (about, _) => MaterialPageRoute<void>(settings: settings, builder: (_) => const AboutScreen()),
         (storeDeals, final String storeName) => MaterialPageRoute<void>(
             settings: settings,
             builder: (_) => StoreDealsScreen(storeName: storeName),
